@@ -15,7 +15,7 @@ void _putchar(char c)
 int main(void)
 {
     TEST_PRINTF("%s %s", "Hello there!", "General Kenobi!")
-    TEST_PRINTF("Some integers: %+15.15d, %d, %.5d", 42, -346650169, -69);
+    TEST_PRINTF("Some integers: %+.30d, %30d, %.5d", 42, -346650169, -69);
     TEST_PRINTF("Some hex integers: %x, %X", 0xdeadbeef, 0xbadface);
     TEST_PRINTF("Some negative hex integers: %x, %.12X", -1, -0xdead);
     TEST_PRINTF("Some octal integers: %o, %o", 8, -27);

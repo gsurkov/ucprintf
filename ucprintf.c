@@ -1,5 +1,7 @@
 #include <float.h>
 #include <stdarg.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 /* Character output function */
@@ -23,24 +25,29 @@ void __attribute__((weak)) _flush(void) {}
 #define _isdigit(c) \
     ((c >= '0') && (c <= '9'))
 
-union dword {
-    float f;
-    unsigned int i;
-};
+#define _isalphalc(c) \
+    ((c >= 'a') && (c <= 'z'))
+
+#define _tolowerc(c) \
+    (c - ('a' - 'A'))
 
 static char buf[XTOA_BUF_SIZE];
 
 #define FLOAT_SIGN_MASK (1U << 31)
 static inline  bool _isnegf(float v)
 {
-    union dword word = {v};
+    union {
+        float f;
+        uint32_t i; // Has to be exactly 32 bits wide
+    } word = {v};
+
     return (word.i & FLOAT_SIGN_MASK);
 }
 
-static inline unsigned int _proundf(float x)
+static inline uint_least32_t _proundf(float x)
 {
-    return (unsigned int)x + (x - (unsigned int)x >= 0.5f ? 1U : 0U);
-} 
+    return (uint_least32_t)x + (x - (uint_least32_t)x >= 0.5f ? 1U : 0U);
+}
 
 static void _puts(const char *s)
 {
@@ -51,21 +58,20 @@ static void _puts(const char *s)
 
 static char *_to_upper(char *s) {
     char *p = s;
-
     for(; *p; p++) {
-        if((*p >= 'a') && (*p <= 'z')) {
-            *p -= ('a' - 'A');
+        if(_isalphalc(*p)) {
+            *p = _tolowerc(*p);
         }
     }
 
     return s;
 }
 
-static int _strlen(const char *s)
+static size_t _strlen(const char *s)
 {
-    const char *p = s;
-    for(; *p; p++) {}
-    return p - s;
+    size_t i;
+    for(i = 0; s[i]; ++i) {}
+    return i;
 }
 
 static char *_strrev(char *s)
@@ -88,12 +94,12 @@ static char *_strjoin(char *s, char c)
     return s;
 }
 
-static char *_strnfill(char *buf, char c, int n)
+static char *_strnfill(char *buf, char c, size_t n)
 {
-    for(int i = 0; i < n; ++i) {
+    for(size_t i = 0; i < n; ++i) {
         buf[i] = c;
     }
-    
+
     buf[n] = '\0';
 
     return buf;
@@ -111,20 +117,39 @@ static char *_strcpy(char *dst, const char *src)
     return ret;
 }
 
-static char _itoc(int v)
+static char _itoc(uint_least8_t v)
 {
     if(v < 10) {
         return v + 48;
-    } else {
+    } else if(v < 16) {
         return v + 87;
+    } else {
+        return 0;
     }
 }
 
-static char *_xitoa(unsigned int v, char *buf, int maxlen, int base, int prec, int width, bool is_neg, bool is_sign)
+/* Internal to printf, handles only non-negative dec numbers */
+static uint_least32_t _atoi_dp(const char *s, size_t *nchar)
 {
-    const int numlen = maxlen - (is_neg || is_sign ? 2U : 1U);
+    size_t i;
+    uint_least32_t val = 0;
+    for(i = 0; _isdigit(s[i]); ++i) {
+        val = val * 10 + _ctoi(s[i]);
+    }
 
-    int i = 0;
+    if(nchar) {
+        *nchar = i;
+    }
+
+    return val;
+}
+
+static char *_xitoa(uint_least32_t v, char *buf, size_t maxlen, uint_least8_t base,
+                    uint_least8_t prec, uint_least8_t width, bool is_neg, bool is_sign)
+{
+    const size_t numlen = maxlen - (is_neg || is_sign ? 2U : 1U);
+
+    size_t i = 0;
 
     do {
         buf[i++] = _itoc(v % base);
@@ -137,7 +162,7 @@ static char *_xitoa(unsigned int v, char *buf, int maxlen, int base, int prec, i
         _strnfill(buf + i, '0', prec);
         i += prec;
     }
- 
+
     if(is_neg) {
         buf[i++] = '-';
     } else if(is_sign) {
@@ -155,38 +180,22 @@ static char *_xitoa(unsigned int v, char *buf, int maxlen, int base, int prec, i
     return _strrev(buf);
 }
 
-static char *_itoa(int v, char *buf, int maxlen, int base, int prec, int width, bool is_sign)
+static char *_itoa(int_least32_t v, char *buf, size_t maxlen, uint_least8_t base, uint_least8_t prec, uint_least8_t width, bool is_sign)
 {
     const bool is_negative = v < 0;
     return _xitoa(is_negative ? -v : v, buf, maxlen, base, prec, width, is_negative, is_sign);
 }
 
-/* Internal to printf, handles only non-negative dec numbers */
-static int _atoi_dp(const char *s, int *nchar)
-{
-    int i;
-    int val = 0;
-    for(i = 0; _isdigit(s[i]); ++i) {
-        val = val * 10 + _ctoi(s[i]);
-    }
-
-    if(nchar) {
-        *nchar = i;
-    }
-
-    return val;
-}
-
-static char *_uitoa(unsigned int v, char *buf, int maxlen, int base, int prec, int width, bool is_sign)
+static char *_uitoa(uint_least32_t v, char *buf, size_t maxlen, uint_least8_t base, uint_least8_t prec, uint_least8_t width, bool is_sign)
 {
     return _xitoa(v, buf, maxlen, base, prec, width, false, is_sign);
 }
 
-static char *_ftoa(float v, char *buf, int maxlen, int prec, int width, bool is_sign)
+static char *_ftoa(float v, char *buf, size_t maxlen, uint_least8_t prec, uint_least8_t width, bool is_sign)
 {
     static const float pow[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 
-    prec = _min(prec, (int)(sizeof(pow)/sizeof(float)));
+    prec = _min(prec, sizeof(pow) / sizeof(float));
 
     if(v != v) {
         _strcpy(buf, "nan");
@@ -198,15 +207,15 @@ static char *_ftoa(float v, char *buf, int maxlen, int prec, int width, bool is_
 
     } else {
         const bool is_neg = _isnegf(v);
-        
+
         if(is_neg) {
             v = -v;
         }
 
-        const unsigned int integer = (unsigned int)v;
-        const unsigned int decimal = _proundf((v - integer) * pow[prec]);
-        const int padding = width > prec ? width - prec - 1 : 0;
-        
+        const uint_least32_t integer = (uint_least32_t)v;
+        const uint_least32_t decimal = _proundf((v - (float)integer) * pow[prec]);
+        const uint_least8_t padding = width > prec ? width - prec - 1 : 0;
+
         if(decimal != 0) {
             _xitoa(decimal, _strjoin(_xitoa(integer, buf, maxlen, 10, 0, padding, is_neg, is_sign), '.'), maxlen, 10, 0, 0, false, false);
         } else {
@@ -228,10 +237,10 @@ void ucprintf(const char *fmt, ...)
     va_start(args, fmt);
 
     enum parser_state state = NORMAL;
-    
-    int prec = FMT_IPREC_DEFAULT;
-    int fprec = FMT_FPREC_DEFAULT;
-    int width = FMT_WIDTH_DEFAULT;
+
+    uint_least8_t prec = FMT_IPREC_DEFAULT;
+    uint_least8_t fprec = FMT_FPREC_DEFAULT;
+    uint_least8_t width = FMT_WIDTH_DEFAULT;
     bool is_sign = FMT_SIGN_DEFAULT;
 
     for(; *fmt; fmt++) {
@@ -250,7 +259,7 @@ void ucprintf(const char *fmt, ...)
                 continue;
 
             } else if(*fmt == '.') {
-                int len;
+                size_t len;
                 prec = _atoi_dp(fmt + 1, &len);
                 fprec = len ? prec : FMT_FPREC_DEFAULT;
                 /* Changing loop counter here! */
@@ -258,7 +267,7 @@ void ucprintf(const char *fmt, ...)
                 continue;
 
             } else if(_isdigit(*fmt)) {
-                int len;
+                size_t len;
                 width = _atoi_dp(fmt, &len);
                 /* Changing loop counter here! */
                 fmt += len - 1;
@@ -269,13 +278,13 @@ void ucprintf(const char *fmt, ...)
             } else if(*fmt == 's') {
                 _puts(va_arg(args, char*));
             } else if(*fmt == 'd') {
-                _puts(_itoa(va_arg(args, int), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
+                _puts(_itoa(va_arg(args, int_least32_t), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
             } else if(*fmt == 'u') {
-                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
+                _puts(_uitoa(va_arg(args, uint_least32_t), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
             } else if(*fmt == 'x') {
-                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign));
+                _puts(_uitoa(va_arg(args, uint_least32_t), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign));
             } else if(*fmt == 'X') {
-                _puts(_to_upper(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign)));
+                _puts(_to_upper(_uitoa(va_arg(args, uint_least32_t), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign)));
             } else if(*fmt == 'f') {
                 _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, fprec, width, is_sign));
             } else if(*fmt == 'e') {
@@ -283,7 +292,7 @@ void ucprintf(const char *fmt, ...)
             } else if(*fmt == 'E') {
                 _puts("<EXP>");
             } else if(*fmt == 'o') {
-                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 8, prec, width, is_sign));
+                _puts(_uitoa(va_arg(args, uint_least32_t), buf, XTOA_BUF_SIZE, 8, prec, width, is_sign));
             }  else {
                 /* No match - going to reset */
             }
@@ -298,6 +307,6 @@ void ucprintf(const char *fmt, ...)
     }
 
     va_end(args);
-    
+
     _flush();
 }
