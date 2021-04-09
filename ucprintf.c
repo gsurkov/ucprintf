@@ -226,6 +226,13 @@ static char *_ftoa(float v, char *buf, size_t maxlen, uint_least8_t prec, uint_l
     return buf;
 }
 
+#define UCPRINTF_RESET() \
+    state = NORMAL;\
+    prec = FMT_IPREC_DEFAULT;\
+    fprec = FMT_FPREC_DEFAULT;\
+    width = FMT_WIDTH_DEFAULT;\
+    is_sign = FMT_SIGN_DEFAULT;
+
 void ucprintf(const char *fmt, ...)
 {
     enum parser_state {
@@ -233,15 +240,15 @@ void ucprintf(const char *fmt, ...)
         FORMAT
     };
 
+    enum parser_state state;
+    uint_least8_t prec, fprec, width;
+    bool is_sign;
+
+    /* Initial reset */
+    UCPRINTF_RESET();
+
     va_list args;
     va_start(args, fmt);
-
-    enum parser_state state = NORMAL;
-
-    uint_least8_t prec = FMT_IPREC_DEFAULT;
-    uint_least8_t fprec = FMT_FPREC_DEFAULT;
-    uint_least8_t width = FMT_WIDTH_DEFAULT;
-    bool is_sign = FMT_SIGN_DEFAULT;
 
     for(; *fmt; fmt++) {
         if(state == NORMAL) {
@@ -299,14 +306,11 @@ void ucprintf(const char *fmt, ...)
         }
 
         /* Reset and wait for next identifier */
-        state = NORMAL;
-        prec = FMT_IPREC_DEFAULT;
-        fprec = FMT_FPREC_DEFAULT;
-        width = FMT_WIDTH_DEFAULT;
-        is_sign = FMT_SIGN_DEFAULT;
+        UCPRINTF_RESET();
     }
 
     va_end(args);
 
     _flush();
 }
+
