@@ -31,8 +31,6 @@ void __attribute__((weak)) _flush(void) {}
 #define _tolowerc(c) \
     (c - ('a' - 'A'))
 
-static char buf[XTOA_BUF_SIZE];
-
 #define FLOAT_SIGN_MASK (1U << 31)
 static inline  bool _isnegf(float v)
 {
@@ -240,6 +238,8 @@ void ucprintf(const char *fmt, ...)
         FORMAT
     };
 
+
+    char buf[XTOA_BUF_SIZE];
     enum parser_state state;
     uint_least8_t prec, fprec, width;
     bool is_sign;
