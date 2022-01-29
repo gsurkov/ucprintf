@@ -238,7 +238,6 @@ void ucprintf(const char *fmt, ...)
         FORMAT
     };
 
-
     char buf[XTOA_BUF_SIZE];
     enum parser_state state;
     uint_least8_t prec, fprec, width;
