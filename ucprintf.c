@@ -31,7 +31,7 @@ void __attribute__((weak)) _flush(void) {}
 #define _tolowerc(c) \
     (c - ('a' - 'A'))
 
-#define FLOAT_SIGN_MASK (1U << 31)
+#define FLOAT_SIGN_MASK (1UL << 31)
 static inline  bool _isnegf(float v)
 {
     union {
