@@ -115,7 +115,7 @@ static char *_strcpy(char *dst, const char *src)
     return ret;
 }
 
-static char _itoc(uint_least8_t v)
+static char _itoc(unsigned char v)
 {
     if(v < 10) {
         return v + 48;
@@ -142,8 +142,8 @@ static uintmax_t _atoi_dp(const char *s, size_t *nchar)
     return val;
 }
 
-static char *_xitoa(uintmax_t v, char *buf, size_t maxlen, uint_least8_t base,
-                    uint_least8_t prec, uint_least8_t width, bool is_neg, bool is_sign)
+static char *_xitoa(uintmax_t v, char *buf, size_t maxlen, unsigned char base,
+                    unsigned char prec, unsigned char width, bool is_neg, bool is_sign)
 {
     const size_t numlen = maxlen - (is_neg || is_sign ? 2U : 1U);
 
@@ -178,18 +178,18 @@ static char *_xitoa(uintmax_t v, char *buf, size_t maxlen, uint_least8_t base,
     return _strrev(buf);
 }
 
-static char *_itoa(intmax_t v, char *buf, size_t maxlen, uint_least8_t base, uint_least8_t prec, uint_least8_t width, bool is_sign)
+static char *_itoa(intmax_t v, char *buf, size_t maxlen, unsigned char base, unsigned char prec, unsigned char width, bool is_sign)
 {
     const bool is_negative = v < 0;
     return _xitoa(is_negative ? -v : v, buf, maxlen, base, prec, width, is_negative, is_sign);
 }
 
-static char *_uitoa(uintmax_t v, char *buf, size_t maxlen, uint_least8_t base, uint_least8_t prec, uint_least8_t width, bool is_sign)
+static char *_uitoa(uintmax_t v, char *buf, size_t maxlen, unsigned char base, unsigned char prec, unsigned char width, bool is_sign)
 {
     return _xitoa(v, buf, maxlen, base, prec, width, false, is_sign);
 }
 
-static char *_ftoa(float v, char *buf, size_t maxlen, uint_least8_t prec, uint_least8_t width, bool is_sign)
+static char *_ftoa(float v, char *buf, size_t maxlen, unsigned char prec, unsigned char width, bool is_sign)
 {
     static const float pow[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
 
@@ -212,7 +212,7 @@ static char *_ftoa(float v, char *buf, size_t maxlen, uint_least8_t prec, uint_l
 
         const uintmax_t integer = (uintmax_t)v;
         const uintmax_t decimal = _proundf((v - (float)integer) * pow[prec]);
-        const uint_least8_t padding = width > prec ? width - prec - 1 : 0;
+        const unsigned char padding = width > prec ? width - prec - 1 : 0;
 
         if(decimal != 0) {
             _xitoa(decimal, _strjoin(_xitoa(integer, buf, maxlen, 10, 0, padding, is_neg, is_sign), '.'), maxlen, 10, 0, 0, false, false);
@@ -240,11 +240,11 @@ typedef enum {
 } ParserFlags;
 
 typedef struct {
-    uint_least8_t szspec;
-    uint_least8_t iprec;
-    uint_least8_t fprec;
-    uint_least8_t width;
-    uint_least8_t flags;
+    unsigned char szspec;
+    unsigned char iprec;
+    unsigned char fprec;
+    unsigned char width;
+    unsigned char flags;
 } ParserState;
 #pragma pack(pop)
 
@@ -257,7 +257,7 @@ static void _ucprintf_reset(ParserState *state)
     state->flags = 0;
 }
 
-static intmax_t _pop_signed(va_list args, uint_least8_t szspec)
+static intmax_t _pop_signed(va_list args, unsigned char szspec)
 {
     switch(szspec) {
     case SIZE_CHAR:
@@ -273,7 +273,7 @@ static intmax_t _pop_signed(va_list args, uint_least8_t szspec)
     };
 }
 
-static uintmax_t _pop_unsigned(va_list args, uint_least8_t szspec)
+static uintmax_t _pop_unsigned(va_list args, unsigned char szspec)
 {
     switch(szspec) {
     case SIZE_CHAR:
