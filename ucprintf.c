@@ -224,92 +224,157 @@ static char *_ftoa(float v, char *buf, size_t maxlen, uint_least8_t prec, uint_l
     return buf;
 }
 
-#define UCPRINTF_RESET() \
-    state = NORMAL;\
-    prec = FMT_IPREC_DEFAULT;\
-    fprec = FMT_FPREC_DEFAULT;\
-    width = FMT_WIDTH_DEFAULT;\
-    is_sign = FMT_SIGN_DEFAULT;
+#pragma pack(push, 1)
+typedef enum {
+    SIZE_CHAR,
+    SIZE_SHORT,
+    SIZE_DEFAULT,
+    SIZE_LONG,
+    SIZE_LONGLONG
+} SizeSpec;
+
+typedef enum {
+    FLAG_IS_FORMAT = (1 << 0),
+    FLAG_IS_SIGN = (1 << 1),
+    FLAG_IS_NEGATIVE = (1 << 2)
+} ParserFlags;
+
+typedef struct {
+    uint_least8_t szspec;
+    uint_least8_t iprec;
+    uint_least8_t fprec;
+    uint_least8_t width;
+    uint_least8_t flags;
+} ParserState;
+#pragma pack(pop)
+
+static void _ucprintf_reset(ParserState *state)
+{
+    state->szspec = SIZE_DEFAULT;
+    state->iprec = FMT_IPREC_DEFAULT;
+    state->fprec = FMT_FPREC_DEFAULT;
+    state->width = FMT_WIDTH_DEFAULT;
+    state->flags = 0;
+}
+
+static intmax_t _pop_signed(va_list args, uint_least8_t szspec)
+{
+    switch(szspec) {
+    case SIZE_CHAR:
+    case SIZE_SHORT:
+    case SIZE_DEFAULT:
+        return va_arg(args, int);
+    case SIZE_LONG:
+        return va_arg(args, long);
+    case SIZE_LONGLONG:
+        return va_arg(args, long long);
+    default:
+        return 0;
+    };
+}
+
+static uintmax_t _pop_unsigned(va_list args, uint_least8_t szspec)
+{
+    switch(szspec) {
+    case SIZE_CHAR:
+    case SIZE_SHORT:
+    case SIZE_DEFAULT:
+        return va_arg(args, unsigned int);
+    case SIZE_LONG:
+        return va_arg(args, unsigned long);
+    case SIZE_LONGLONG:
+        return va_arg(args, unsigned long long);
+    default:
+        return 0;
+    };
+}
 
 void ucprintf(const char *fmt, ...)
 {
-    enum parser_state {
-        NORMAL,
-        FORMAT
-    };
-
     char buf[XTOA_BUF_SIZE];
-    enum parser_state state;
-    uint_least8_t prec, fprec, width;
-    bool is_sign;
+    ParserState state;
 
-    /* Initial reset */
-    UCPRINTF_RESET();
+    _ucprintf_reset(&state);
 
     va_list args;
     va_start(args, fmt);
 
     for(; *fmt; fmt++) {
-        if(state == NORMAL) {
+        if(!(state.flags & FLAG_IS_FORMAT)) {
             if(*fmt == '%') {
-                state = FORMAT;
+                state.flags |= FLAG_IS_FORMAT;
             } else {
                 _putchar(*fmt);
             }
 
             continue;
 
-        } else if(state == FORMAT) {
-            if(*fmt == '+') {
-                is_sign = true;
-                continue;
+        } else if(*fmt == '+') {
+            state.flags |= FLAG_IS_SIGN;
+            continue;
 
-            } else if(*fmt == '.') {
-                size_t len;
-                prec = _atoi_dp(fmt + 1, &len);
-                fprec = len ? prec : FMT_FPREC_DEFAULT;
-                /* Changing loop counter here! */
-                fmt += len;
-                continue;
+        } else if(*fmt == '.') {
+            size_t len;
+            state.iprec = _atoi_dp(fmt + 1, &len);
+            state.fprec = len ? state.iprec : FMT_FPREC_DEFAULT;
+            /* Changing loop counter here! */
+            fmt += len;
+            continue;
 
-            } else if(_isdigit(*fmt)) {
-                size_t len;
-                width = _atoi_dp(fmt, &len);
-                /* Changing loop counter here! */
-                fmt += len - 1;
-                continue;
+        } else if(_isdigit(*fmt)) {
+            size_t len;
+            state.width = _atoi_dp(fmt, &len);
+            /* Changing loop counter here! */
+            fmt += len - 1;
+            continue;
 
-            } else if(*fmt == '%') {
-                _putchar('%');
-            } else if(*fmt == 's') {
-                _puts(va_arg(args, char*));
-            } else if(*fmt == 'd' || *fmt == 'i') {
-                _puts(_itoa(va_arg(args, int), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
-            } else if(*fmt == 'u') {
-                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
-            } else if(*fmt == 'x') {
-                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign));
-            } else if(*fmt == 'X') {
-                _puts(_to_upper(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign)));
-            } else if(*fmt == 'f') {
-                _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, fprec, width, is_sign));
-            } else if(*fmt == 'e') {
-                _puts("<exp>");
-            } else if(*fmt == 'E') {
-                _puts("<EXP>");
-            } else if(*fmt == 'o') {
-                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 8, prec, width, is_sign));
-            }  else {
-                /* No match - going to reset */
+        } else if(*fmt == 'h') {
+            if(state.szspec == SIZE_DEFAULT) {
+                state.szspec = SIZE_SHORT;
+                continue;
+            } else if(state.szspec == SIZE_SHORT) {
+                state.szspec = SIZE_CHAR;
+                continue;
             }
+
+        } else if(*fmt == 'l') {
+            if(state.szspec == SIZE_DEFAULT) {
+                state.szspec = SIZE_LONG;
+                continue;
+            } else if(state.szspec == SIZE_LONG) {
+                state.szspec = SIZE_LONGLONG;
+                continue;
+            }
+
+        } else if(*fmt == '%') {
+            _putchar('%');
+        } else if(*fmt == 's') {
+            _puts(va_arg(args, char*));
+        } else if(*fmt == 'd' || *fmt == 'i') {
+            _puts(_itoa(_pop_signed(args, state.szspec), buf, XTOA_BUF_SIZE, 10, state.iprec, state.width, state.flags & FLAG_IS_SIGN));
+        } else if(*fmt == 'u') {
+            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 10, state.iprec, state.width, state.flags & FLAG_IS_SIGN));
+        } else if(*fmt == 'x') {
+            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 16, state.iprec, state.width, state.flags & FLAG_IS_SIGN));
+        } else if(*fmt == 'X') {
+            _puts(_to_upper(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 16, state.iprec, state.width, state.flags & FLAG_IS_SIGN)));
+        } else if(*fmt == 'o') {
+            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 8, state.iprec, state.width, state.flags & FLAG_IS_SIGN));
+        } else if(*fmt == 'f') {
+            _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, state.fprec, state.width, state.flags & FLAG_IS_SIGN));
+        } else if(*fmt == 'e') {
+            _puts("<exp>"); /* TODO: take the argument from stack anyway */
+        } else if(*fmt == 'E') {
+            _puts("<EXP>"); /* TODO: take the argument from stack anyway */
+        }  else {
+            _putchar(*fmt);
         }
 
         /* Reset and wait for next identifier */
-        UCPRINTF_RESET();
+        _ucprintf_reset(&state);
     }
 
     va_end(args);
 
     _flush();
 }
-
