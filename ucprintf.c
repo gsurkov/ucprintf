@@ -252,7 +252,6 @@ static char *_ftoa(float v, char *buf, size_t maxlen, unsigned char prec, unsign
     return buf;
 }
 
-#pragma pack(push, 1)
 typedef enum {
     SIZE_CHAR,
     SIZE_SHORT,
@@ -271,7 +270,6 @@ typedef struct {
         unsigned prec:1;   /**< Force precision is set */
     } flags;
 } ParserState;
-#pragma pack(pop)
 
 static void _ucprintf_reset(ParserState *state)
 {
