@@ -203,8 +203,7 @@ static char *_ftoa(float v, char *buf, size_t maxlen, unsigned char prec, unsign
     } else if(v < -FLT_MAX) {
         _strcpy(buf, "-inf");
     } else if(v > FLT_MAX) {
-        static const char inf[] = "+inf";
-        _strcpy(buf, is_sign ? inf : inf+1);
+        _strcpy(buf, is_sign ? "+inf" : "inf");
 
     } else {
         const bool is_neg = _isnegf(v);
