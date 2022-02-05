@@ -38,7 +38,7 @@ int main(void)
 
 
     TEST_PRINTF("Big float: %f, big negative float: %f", (float)LLONG_MAX, (float)LLONG_MIN);
-    TEST_PRINTF("Some floats: %+.5f, %9.4f, %f", 3.14159f, -23.8f, -0.0f);
+    TEST_PRINTF("Some floats: %+.5f, %+9.4f, %5.0f", 3.14159f, -23.8f, -0.23f);
 
     return 0;
 }

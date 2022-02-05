@@ -4,10 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Character output function */
+/** Character output function */
 void _putchar(char c);
 
-/* Optional function to trigger buffered transfers */
+/** Optional function to trigger buffered transfers */
 void __attribute__((weak)) _flush(void) {}
 
 #define TRUE 1
@@ -18,7 +18,6 @@ void __attribute__((weak)) _flush(void) {}
 #define FMT_FPREC_DEFAULT 6
 #define FMT_IPREC_DEFAULT 0
 #define FMT_WIDTH_DEFAULT 0
-#define FMT_SIGN_DEFAULT false
 
 #define _min(x, y) (x < y ? x : y)
 #define _max(x, y) (x > y ? x : y)
@@ -45,6 +44,7 @@ static inline  bool _isnegf(float v)
     return (word.i & FLOAT_SIGN_MASK);
 }
 
+/** Rounds positive floating point numbers */
 static inline uintmax_t _proundf(float x)
 {
     return (uintmax_t)x + (x - (uintmax_t)x >= 0.5f ? 1U : 0U);
@@ -129,7 +129,7 @@ static char _itoc(unsigned char v)
     }
 }
 
-/* Internal to printf, handles only non-negative dec numbers */
+/** Converts a string to a non-negative decimal number */
 static uintmax_t _atoi_dp(const char *s, size_t *nchar)
 {
     size_t i;
@@ -145,6 +145,18 @@ static uintmax_t _atoi_dp(const char *s, size_t *nchar)
     return val;
 }
 
+/**
+ * @brief Converts a non-negative integer number to a string
+ * @param[in] v Input nuber
+ * @param[in] buf Pointer to output buffer
+ * @param[in] maxlen Output buffer length
+ * @param[in] base Base for the conversion
+ * @param[in] prec If the resulting string is shorter, fill the rest with zeros
+ * @param[in] width If the resulting string is shorter, fill the rest with spaces
+ * @param[in] is_neg Whether the number should be negative
+ * @param[in] is_sign Force the sign output
+ * @return Pointer to output buffer
+ */
 static char *_xitoa(uintmax_t v, char *buf, size_t maxlen, unsigned char base,
                     unsigned char prec, unsigned char width, bool is_neg, bool is_sign)
 {
@@ -181,17 +193,29 @@ static char *_xitoa(uintmax_t v, char *buf, size_t maxlen, unsigned char base,
     return _strrev(buf);
 }
 
+/** Wrapper for _xitoa() for handling signed integers */
 static char *_itoa(intmax_t v, char *buf, size_t maxlen, unsigned char base, unsigned char prec, unsigned char width, bool is_sign)
 {
     const bool is_negative = v < 0;
     return _xitoa(is_negative ? -v : v, buf, maxlen, base, prec, width, is_negative, is_sign);
 }
 
+/** Wrapper for _xitoa() for handling unsigned integers */
 static char *_uitoa(uintmax_t v, char *buf, size_t maxlen, unsigned char base, unsigned char prec, unsigned char width, bool is_sign)
 {
     return _xitoa(v, buf, maxlen, base, prec, width, false, is_sign);
 }
 
+/**
+ * @brief Converts a floating point number to a string
+ * @param[in] v Input nuber
+ * @param[in] buf Pointer to output buffer
+ * @param[in] maxlen Output buffer length
+ * @param[in] prec The number of places after the decimal point
+ * @param[in] width If the resulting string is shorter, fill the rest with spaces
+ * @param[in] is_sign Force the sign output
+ * @return Pointer to output buffer
+ */
 static char *_ftoa(float v, char *buf, size_t maxlen, unsigned char prec, unsigned char width, bool is_sign)
 {
     static const float pow[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000};
@@ -214,12 +238,14 @@ static char *_ftoa(float v, char *buf, size_t maxlen, unsigned char prec, unsign
 
         const uintmax_t integer = (uintmax_t)v;
         const uintmax_t decimal = _proundf((v - (float)integer) * pow[prec]);
-        const unsigned char padding = width > prec ? width - prec - 1 : 0;
+        const unsigned char padding = width > prec ? width - prec - (prec ? 1 : 0) : 0;
 
         if(decimal != 0) {
             _xitoa(decimal, _strjoin(_xitoa(integer, buf, maxlen, 10, 0, padding, is_neg, is_sign), '.'), maxlen, 10, 0, 0, false, false);
+        } else if(prec != 0) {
+            _strnfill(_strjoin(_xitoa(integer, buf, maxlen, 10, 0, padding, is_neg, is_sign), '.'), '0', prec);
         } else {
-            _strnfill(_strjoin(_xitoa(integer, buf, maxlen, 10, 0, padding, is_neg, is_sign), '.'), '0', FMT_FPREC_DEFAULT);
+            _xitoa(integer, buf, maxlen, 10, 0, padding, is_neg, is_sign);
         }
     }
 
@@ -236,14 +262,13 @@ typedef enum {
 } SizeSpec;
 
 typedef struct {
-    unsigned char szspec;
-    unsigned char prec;
-    unsigned char width;
+    unsigned char szspec;  /**< Size specifier */
+    unsigned char prec;    /**< Precision */
+    unsigned char width;   /**< Required width */
     struct {
-        unsigned format:1;
-        unsigned sign:1;
-        unsigned precset:1;
-        unsigned negative:1;
+        unsigned format:1; /**< Format specifier detected */
+        unsigned sign:1;   /**< Force sign is set */
+        unsigned prec:1;   /**< Force precision is set */
     } flags;
 } ParserState;
 #pragma pack(pop)
@@ -256,8 +281,7 @@ static void _ucprintf_reset(ParserState *state)
 
     state->flags.format = FALSE;
     state->flags.sign = FALSE;
-    state->flags.precset = FALSE;
-    state->flags.negative = FALSE;
+    state->flags.prec = FALSE;
 }
 
 static intmax_t _pop_signed(va_list args, unsigned char szspec)
@@ -319,7 +343,7 @@ void ucprintf(const char *fmt, ...)
         } else if(*fmt == '.') {
             size_t len;
             state.prec = _atoi_dp(fmt + 1, &len);
-            state.flags.precset = TRUE;
+            state.flags.prec = TRUE;
             /* Changing loop counter here! */
             fmt += len;
             continue;
@@ -364,7 +388,7 @@ void ucprintf(const char *fmt, ...)
         } else if(*fmt == 'o') {
             _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 8, state.prec, state.width, state.flags.sign));
         } else if(*fmt == 'f') {
-            _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, state.flags.precset ? state.prec : FMT_FPREC_DEFAULT, state.width, state.flags.sign));
+            _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, state.flags.prec ? state.prec : FMT_FPREC_DEFAULT, state.width, state.flags.sign));
         } else if(*fmt == 'e') {
             _puts("<exp>"); /* TODO: take the argument from stack anyway */
         } else if(*fmt == 'E') {
