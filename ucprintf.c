@@ -42,9 +42,9 @@ static inline  bool _isnegf(float v)
     return (word.i & FLOAT_SIGN_MASK);
 }
 
-static inline uint_least32_t _proundf(float x)
+static inline uintmax_t _proundf(float x)
 {
-    return (uint_least32_t)x + (x - (uint_least32_t)x >= 0.5f ? 1U : 0U);
+    return (uintmax_t)x + (x - (uintmax_t)x >= 0.5f ? 1U : 0U);
 }
 
 static void _puts(const char *s)
@@ -127,10 +127,10 @@ static char _itoc(uint_least8_t v)
 }
 
 /* Internal to printf, handles only non-negative dec numbers */
-static uint_least32_t _atoi_dp(const char *s, size_t *nchar)
+static uintmax_t _atoi_dp(const char *s, size_t *nchar)
 {
     size_t i;
-    uint_least32_t val = 0;
+    uintmax_t val = 0;
     for(i = 0; _isdigit(s[i]); ++i) {
         val = val * 10 + _ctoi(s[i]);
     }
@@ -142,7 +142,7 @@ static uint_least32_t _atoi_dp(const char *s, size_t *nchar)
     return val;
 }
 
-static char *_xitoa(uint_least32_t v, char *buf, size_t maxlen, uint_least8_t base,
+static char *_xitoa(uintmax_t v, char *buf, size_t maxlen, uint_least8_t base,
                     uint_least8_t prec, uint_least8_t width, bool is_neg, bool is_sign)
 {
     const size_t numlen = maxlen - (is_neg || is_sign ? 2U : 1U);
@@ -178,13 +178,13 @@ static char *_xitoa(uint_least32_t v, char *buf, size_t maxlen, uint_least8_t ba
     return _strrev(buf);
 }
 
-static char *_itoa(int_least32_t v, char *buf, size_t maxlen, uint_least8_t base, uint_least8_t prec, uint_least8_t width, bool is_sign)
+static char *_itoa(intmax_t v, char *buf, size_t maxlen, uint_least8_t base, uint_least8_t prec, uint_least8_t width, bool is_sign)
 {
     const bool is_negative = v < 0;
     return _xitoa(is_negative ? -v : v, buf, maxlen, base, prec, width, is_negative, is_sign);
 }
 
-static char *_uitoa(uint_least32_t v, char *buf, size_t maxlen, uint_least8_t base, uint_least8_t prec, uint_least8_t width, bool is_sign)
+static char *_uitoa(uintmax_t v, char *buf, size_t maxlen, uint_least8_t base, uint_least8_t prec, uint_least8_t width, bool is_sign)
 {
     return _xitoa(v, buf, maxlen, base, prec, width, false, is_sign);
 }
@@ -210,8 +210,8 @@ static char *_ftoa(float v, char *buf, size_t maxlen, uint_least8_t prec, uint_l
             v = -v;
         }
 
-        const uint_least32_t integer = (uint_least32_t)v;
-        const uint_least32_t decimal = _proundf((v - (float)integer) * pow[prec]);
+        const uintmax_t integer = (uintmax_t)v;
+        const uintmax_t decimal = _proundf((v - (float)integer) * pow[prec]);
         const uint_least8_t padding = width > prec ? width - prec - 1 : 0;
 
         if(decimal != 0) {
@@ -283,14 +283,14 @@ void ucprintf(const char *fmt, ...)
                 _putchar('%');
             } else if(*fmt == 's') {
                 _puts(va_arg(args, char*));
-            } else if(*fmt == 'd') {
-                _puts(_itoa(va_arg(args, int_least32_t), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
+            } else if(*fmt == 'd' || *fmt == 'i') {
+                _puts(_itoa(va_arg(args, int), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
             } else if(*fmt == 'u') {
-                _puts(_uitoa(va_arg(args, uint_least32_t), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
+                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 10, prec, width, is_sign));
             } else if(*fmt == 'x') {
-                _puts(_uitoa(va_arg(args, uint_least32_t), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign));
+                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign));
             } else if(*fmt == 'X') {
-                _puts(_to_upper(_uitoa(va_arg(args, uint_least32_t), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign)));
+                _puts(_to_upper(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 16, prec, width, is_sign)));
             } else if(*fmt == 'f') {
                 _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, fprec, width, is_sign));
             } else if(*fmt == 'e') {
@@ -298,7 +298,7 @@ void ucprintf(const char *fmt, ...)
             } else if(*fmt == 'E') {
                 _puts("<EXP>");
             } else if(*fmt == 'o') {
-                _puts(_uitoa(va_arg(args, uint_least32_t), buf, XTOA_BUF_SIZE, 8, prec, width, is_sign));
+                _puts(_uitoa(va_arg(args, unsigned int), buf, XTOA_BUF_SIZE, 8, prec, width, is_sign));
             }  else {
                 /* No match - going to reset */
             }
