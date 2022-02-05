@@ -10,6 +10,9 @@ void _putchar(char c);
 /* Optional function to trigger buffered transfers */
 void __attribute__((weak)) _flush(void) {}
 
+#define TRUE 1
+#define FALSE 0
+
 #define XTOA_BUF_SIZE 32U
 
 #define FMT_FPREC_DEFAULT 6
@@ -233,28 +236,29 @@ typedef enum {
     SIZE_LONGLONG
 } SizeSpec;
 
-typedef enum {
-    FLAG_IS_FORMAT = (1 << 0),
-    FLAG_IS_SIGN = (1 << 1),
-    FLAG_IS_NEGATIVE = (1 << 2)
-} ParserFlags;
-
 typedef struct {
     unsigned char szspec;
-    unsigned char iprec;
-    unsigned char fprec;
+    unsigned char prec;
     unsigned char width;
-    unsigned char flags;
+    struct {
+        unsigned format:1;
+        unsigned sign:1;
+        unsigned precset:1;
+        unsigned negative:1;
+    } flags;
 } ParserState;
 #pragma pack(pop)
 
 static void _ucprintf_reset(ParserState *state)
 {
     state->szspec = SIZE_DEFAULT;
-    state->iprec = FMT_IPREC_DEFAULT;
-    state->fprec = FMT_FPREC_DEFAULT;
+    state->prec = FMT_IPREC_DEFAULT;
     state->width = FMT_WIDTH_DEFAULT;
-    state->flags = 0;
+
+    state->flags.format = FALSE;
+    state->flags.sign = FALSE;
+    state->flags.precset = FALSE;
+    state->flags.negative = FALSE;
 }
 
 static intmax_t _pop_signed(va_list args, unsigned char szspec)
@@ -300,9 +304,9 @@ void ucprintf(const char *fmt, ...)
     va_start(args, fmt);
 
     for(; *fmt; fmt++) {
-        if(!(state.flags & FLAG_IS_FORMAT)) {
+        if(!(state.flags.format)) {
             if(*fmt == '%') {
-                state.flags |= FLAG_IS_FORMAT;
+                state.flags.format = TRUE;
             } else {
                 _putchar(*fmt);
             }
@@ -310,13 +314,13 @@ void ucprintf(const char *fmt, ...)
             continue;
 
         } else if(*fmt == '+') {
-            state.flags |= FLAG_IS_SIGN;
+            state.flags.sign = TRUE;
             continue;
 
         } else if(*fmt == '.') {
             size_t len;
-            state.iprec = _atoi_dp(fmt + 1, &len);
-            state.fprec = len ? state.iprec : FMT_FPREC_DEFAULT;
+            state.prec = _atoi_dp(fmt + 1, &len);
+            state.flags.precset = TRUE;
             /* Changing loop counter here! */
             fmt += len;
             continue;
@@ -351,17 +355,17 @@ void ucprintf(const char *fmt, ...)
         } else if(*fmt == 's') {
             _puts(va_arg(args, char*));
         } else if(*fmt == 'd' || *fmt == 'i') {
-            _puts(_itoa(_pop_signed(args, state.szspec), buf, XTOA_BUF_SIZE, 10, state.iprec, state.width, state.flags & FLAG_IS_SIGN));
+            _puts(_itoa(_pop_signed(args, state.szspec), buf, XTOA_BUF_SIZE, 10, state.prec, state.width, state.flags.sign));
         } else if(*fmt == 'u') {
-            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 10, state.iprec, state.width, state.flags & FLAG_IS_SIGN));
+            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 10, state.prec, state.width, state.flags.sign));
         } else if(*fmt == 'x') {
-            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 16, state.iprec, state.width, state.flags & FLAG_IS_SIGN));
+            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 16, state.prec, state.width, state.flags.sign));
         } else if(*fmt == 'X') {
-            _puts(_to_upper(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 16, state.iprec, state.width, state.flags & FLAG_IS_SIGN)));
+            _puts(_to_upper(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 16, state.prec, state.width, state.flags.sign)));
         } else if(*fmt == 'o') {
-            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 8, state.iprec, state.width, state.flags & FLAG_IS_SIGN));
+            _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 8, state.prec, state.width, state.flags.sign));
         } else if(*fmt == 'f') {
-            _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, state.fprec, state.width, state.flags & FLAG_IS_SIGN));
+            _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, state.flags.precset ? state.prec : FMT_FPREC_DEFAULT, state.width, state.flags.sign));
         } else if(*fmt == 'e') {
             _puts("<exp>"); /* TODO: take the argument from stack anyway */
         } else if(*fmt == 'E') {
