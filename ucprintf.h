@@ -1,17 +1,22 @@
 #pragma once
 
 /*
- * Supported printf subset: %(+)(width).(precision)[specifier]
+ * Supported printf subset: %(+)(width).(precision)(size)[specifier]
  * Supported format specifiers: 
  * s = string
- * d = integer
+ * d,i = integer
  * u = unsigned integer
  * o = octal integer
  * x, X = hex integer
  * f = float
- * e, E = scientific float (not implemented yet)
+ *
+ * Supported size modifiers:
+ * hh - char
+ * h - short
+ * l - long
+ * ll - long long
  * 
- * Note: float precision is limited to 9
+ * Note: float precision is limited to 9.
  */
 
 void ucprintf(const char *fmt, ...);

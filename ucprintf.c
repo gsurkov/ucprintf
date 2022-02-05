@@ -389,10 +389,6 @@ void ucprintf(const char *fmt, ...)
             _puts(_uitoa(_pop_unsigned(args, state.szspec), buf, XTOA_BUF_SIZE, 8, state.prec, state.width, state.flags.sign));
         } else if(*fmt == 'f') {
             _puts(_ftoa(va_arg(args, double), buf, XTOA_BUF_SIZE, state.flags.prec ? state.prec : FMT_FPREC_DEFAULT, state.width, state.flags.sign));
-        } else if(*fmt == 'e') {
-            _puts("<exp>"); /* TODO: take the argument from stack anyway */
-        } else if(*fmt == 'E') {
-            _puts("<EXP>"); /* TODO: take the argument from stack anyway */
         }  else {
             _putchar(*fmt);
         }
